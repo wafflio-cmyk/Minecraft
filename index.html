@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+    <script src="ocjl.js"></script>
+    <script>
+        function id(i) {
+            return document.getElementById(i);
+        }
+        function ih(i) {
+            return id(i).innerHTML;
+        }
+        function create(t) {
+            return document.createElement(t);
+        }
+    </script> 
+    <script>
+        var SEED = Math.random();
+    </script>
+    <head>
+        <meta charset="utf-8">
+    </head>
+    <body></body>
+    <script id="color.vsh">
+        precision highp float;
+        attribute vec3 vertPos;
+        attribute vec3 vertCol;
+        attribute vec3 vertNor;
+        attribute float vertImg;
+        attribute float vertWavy;
+        
+        varying vec3 fragColor;
+        varying float img;
+        varying vec3 pos;
+        varying vec3 normal;
+        
+        uniform float FOV;
+        uniform float yaw;
+        uniform float pitch;
+        uniform vec3 cam;
+        uniform float time;
+        
+        const float far = 1000.;
+        const float near = 500.;
+        
+        vec3 xRotate(float theta, vec3 pos) {
+            float s = sin(theta);
+            float c = cos(theta);
+            return vec3(pos.x, pos.y * c - pos.z * s, pos.z * c + pos.y * s);
+        }
+        vec3 yRotate(float theta, vec3 pos) {
+            float s = sin(theta);
+            float c = cos(theta);
+            return vec3(pos.x * c + pos.z * s, pos.y, pos.z * c - pos.x * s);
+        }
+        
+        void main() {
+            vec3 vPos = vertPos;
+            if(vertWavy == 1.) {
+                vPos += vec3(cos(time * 0.02 + vPos.x * 0.1) * 2., sin(time * 0.014 + vPos.y * 0.1) * 2., cos(time * 0.013 + vPos.z * 0.1) * 2.);
+            }
+            normal = vertNor;
+            vec3 vert = vPos - cam;
+            vert = yRotate(yaw, vert);
+            vert = xRotate(pitch, vert);
+            img = vertImg;
+            pos = vPos;
+            fragColor = vertCol;
+            float z = vert.z * FOV;
+            float zLine = (vert.z - near) / (far - near);
+            gl_Position = vec4(vert.xy, zLine, 1. * z);
+        }
+    </script> 
+    <script id="color.fsh">
+        precision highp float;
+        
+        varying vec3 fragColor;
+        varying float img;
+        varying vec3 pos;
+        varying vec3 normal;
+        
+        uniform sampler2D texture;
+        uniform vec3 cam;
+        uniform vec3 sun;
+        
+        float map(float a, float b, float c, float d, float e) {
+            return d + (a - b) / (c - b) * (e - d);
+        }
+        
+        void main() {
+            float shade = clamp(dot(-sun, normal), 0.3, 1.);
+            if(img != 0.) {
+                vec4 t = texture2D(texture, fragColor.xy);
+                if(t.a < 1.) {
+                    discard;
+                }
+                else {
+                    gl_FragColor = vec4(t.rgb * shade, t.a);
+                }
+            }
+            else {
+                gl_FragColor = vec4(fragColor, 1);
+            }
+        }
+    </script>
+    <script id="sky.vsh">
+        precision highp float;
+        
+        attribute vec2 vertPos;
+        
+        void main() {
+            gl_Position = vec4(vertPos.xy, 0, 1);
+        }
+    </script>
+    <script id="sky.fsh">
+        #ifdef GL_ES
+        precision mediump float;
+        #endif
+        
+        uniform float time;
+        uniform vec2 res;
+        uniform vec3 sun;
+        uniform vec3 cam;
+        uniform float yaw;
+        uniform float pitch;
+        uniform float FOV;
+        
+        float map(float v, float v1, float v2, float v3, float v4) {
+            return v3 + (v - v1) / (v2 - v1) * (v4 - v3);
+        }
+        
+        vec3 xRotate(float theta, vec3 pos) {
+            float s = sin(theta);
+            float c = cos(theta);
+            return vec3(pos.x, pos.y * c - pos.z * s, pos.z * c + pos.y * s);
+        }
+        vec3 yRotate(float theta, vec3 pos) {
+            float s = sin(theta);
+            float c = cos(theta);
+            return vec3(pos.x * c + pos.z * s, pos.y, pos.z * c - pos.x * s);
+        }
+        
+        void main() {
+            vec3 dir = vec3(map(gl_FragCoord.x, 0., res.x, -FOV, FOV), map(gl_FragCoord.y, 0., res.y, -FOV, FOV), 1.);
+            dir = normalize(dir);
+            dir = xRotate(-pitch, dir);
+            dir = yRotate(-yaw, dir);
+            
+            gl_FragColor = vec4(0, map(clamp(dir.y, -0.3, 0.8), -0.3, 0.8, 0.8, 0.7), 1, 1);
+            if(dot(dir, -sun) > 0.99) {
+                gl_FragColor = vec4(1);
+            }
+        }
+    </script>
+    <script id="vector.js" src="vector.js"></script>
+    <script id="math.js" src="math.js"></script>
+    <script id="texture.js" src="textures.js"></script>
+    <script id="logic.js" src="logic.js"></script>
+    <script id="matrix-rotate.js" src="matrix-rotate.js"></script>
+    <script id="render.js" src="render.js"></script> 
+    <script id="run.js" src="run.js"></script>
+</html>
